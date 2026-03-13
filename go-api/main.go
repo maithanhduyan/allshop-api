@@ -92,6 +92,10 @@ func main() {
 		r.Post("/auth/register", h.Register)
 		r.Post("/auth/login", h.Login)
 
+		// Public invoice access (by UUID public key, only issued invoices)
+		r.Get("/p/invoices/{publicKey}", h.GetPublicInvoice)
+		r.Get("/p/invoices/{publicKey}/pdf", h.ExportPublicInvoicePDF)
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret))

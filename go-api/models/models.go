@@ -106,6 +106,7 @@ type UpdateProfileRequest struct {
 
 type Invoice struct {
 	ID            string        `json:"id"`
+	PublicKey     string        `json:"publicKey"`
 	InvoiceNumber string        `json:"invoiceNumber"`
 	OrderID       string        `json:"orderId"`
 	UserID        string        `json:"userId"`

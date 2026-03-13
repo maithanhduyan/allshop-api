@@ -116,7 +116,7 @@ func (h *Handler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 			buyer_name, buyer_tax_code, buyer_address, buyer_email,
 			subtotal, tax_rate, tax_amount, total_amount, status
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'draft')
-		RETURNING id, invoice_number, order_id, user_id,
+		RETURNING id, public_key, invoice_number, order_id, user_id,
 			seller_name, seller_tax_code, seller_address,
 			buyer_name, buyer_tax_code, buyer_address, buyer_email,
 			subtotal, tax_rate, tax_amount, total_amount, status,
@@ -126,7 +126,7 @@ func (h *Handler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		order.Name, req.BuyerTaxCode, order.Address, buyerEmail,
 		subtotal, taxRate, taxAmount, totalAmount,
 	).Scan(
-		&invoice.ID, &invoice.InvoiceNumber, &invoice.OrderID, &invoice.UserID,
+		&invoice.ID, &invoice.PublicKey, &invoice.InvoiceNumber, &invoice.OrderID, &invoice.UserID,
 		&invoice.SellerName, &invoice.SellerTaxCode, &invoice.SellerAddress,
 		&invoice.BuyerName, &invoice.BuyerTaxCode, &invoice.BuyerAddress, &invoice.BuyerEmail,
 		&invoice.Subtotal, &invoice.TaxRate, &invoice.TaxAmount, &invoice.TotalAmount, &invoice.Status,
@@ -181,7 +181,7 @@ func (h *Handler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 	userID := getUserID(r)
 
 	rows, err := h.db.Query(
-		`SELECT id, invoice_number, order_id, user_id,
+		`SELECT id, public_key, invoice_number, order_id, user_id,
 			seller_name, seller_tax_code, seller_address,
 			buyer_name, buyer_tax_code, buyer_address, buyer_email,
 			subtotal, tax_rate, tax_amount, total_amount, status,
@@ -198,7 +198,7 @@ func (h *Handler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var inv models.Invoice
 		if err := rows.Scan(
-			&inv.ID, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
+			&inv.ID, &inv.PublicKey, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
 			&inv.SellerName, &inv.SellerTaxCode, &inv.SellerAddress,
 			&inv.BuyerName, &inv.BuyerTaxCode, &inv.BuyerAddress, &inv.BuyerEmail,
 			&inv.Subtotal, &inv.TaxRate, &inv.TaxAmount, &inv.TotalAmount, &inv.Status,
@@ -224,14 +224,14 @@ func (h *Handler) GetInvoice(w http.ResponseWriter, r *http.Request) {
 
 	var inv models.Invoice
 	err := h.db.QueryRow(
-		`SELECT id, invoice_number, order_id, user_id,
+		`SELECT id, public_key, invoice_number, order_id, user_id,
 			seller_name, seller_tax_code, seller_address,
 			buyer_name, buyer_tax_code, buyer_address, buyer_email,
 			subtotal, tax_rate, tax_amount, total_amount, status,
 			issued_at, cancelled_at, created_at
 		 FROM invoices WHERE id = $1 AND user_id = $2`, invoiceID, userID,
 	).Scan(
-		&inv.ID, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
+		&inv.ID, &inv.PublicKey, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
 		&inv.SellerName, &inv.SellerTaxCode, &inv.SellerAddress,
 		&inv.BuyerName, &inv.BuyerTaxCode, &inv.BuyerAddress, &inv.BuyerEmail,
 		&inv.Subtotal, &inv.TaxRate, &inv.TaxAmount, &inv.TotalAmount, &inv.Status,
@@ -304,14 +304,14 @@ func (h *Handler) IssueInvoice(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRow(
 		`UPDATE invoices SET status = 'issued', issued_at = $1
 		 WHERE id = $2 AND user_id = $3
-		 RETURNING id, invoice_number, order_id, user_id,
+		 RETURNING id, public_key, invoice_number, order_id, user_id,
 			seller_name, seller_tax_code, seller_address,
 			buyer_name, buyer_tax_code, buyer_address, buyer_email,
 			subtotal, tax_rate, tax_amount, total_amount, status,
 			issued_at, cancelled_at, created_at`,
 		now, invoiceID, userID,
 	).Scan(
-		&inv.ID, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
+		&inv.ID, &inv.PublicKey, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
 		&inv.SellerName, &inv.SellerTaxCode, &inv.SellerAddress,
 		&inv.BuyerName, &inv.BuyerTaxCode, &inv.BuyerAddress, &inv.BuyerEmail,
 		&inv.Subtotal, &inv.TaxRate, &inv.TaxAmount, &inv.TotalAmount, &inv.Status,
@@ -376,14 +376,14 @@ func (h *Handler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRow(
 		`UPDATE invoices SET status = 'cancelled', cancelled_at = $1
 		 WHERE id = $2 AND user_id = $3
-		 RETURNING id, invoice_number, order_id, user_id,
+		 RETURNING id, public_key, invoice_number, order_id, user_id,
 			seller_name, seller_tax_code, seller_address,
 			buyer_name, buyer_tax_code, buyer_address, buyer_email,
 			subtotal, tax_rate, tax_amount, total_amount, status,
 			issued_at, cancelled_at, created_at`,
 		now, invoiceID, userID,
 	).Scan(
-		&inv.ID, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
+		&inv.ID, &inv.PublicKey, &inv.InvoiceNumber, &inv.OrderID, &inv.UserID,
 		&inv.SellerName, &inv.SellerTaxCode, &inv.SellerAddress,
 		&inv.BuyerName, &inv.BuyerTaxCode, &inv.BuyerAddress, &inv.BuyerEmail,
 		&inv.Subtotal, &inv.TaxRate, &inv.TaxAmount, &inv.TotalAmount, &inv.Status,

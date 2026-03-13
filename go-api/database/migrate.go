@@ -69,6 +69,7 @@ func Migrate(db *sql.DB) error {
 
 		`CREATE TABLE IF NOT EXISTS invoices (
 			id SERIAL PRIMARY KEY,
+			public_key UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
 			invoice_number VARCHAR(50) UNIQUE NOT NULL,
 			order_id INT REFERENCES orders(id),
 			user_id INT REFERENCES users(id),
@@ -88,6 +89,13 @@ func Migrate(db *sql.DB) error {
 			cancelled_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		)`,
+
+		// Add public_key to existing invoices (idempotent)
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='public_key') THEN
+				ALTER TABLE invoices ADD COLUMN public_key UUID UNIQUE NOT NULL DEFAULT gen_random_uuid();
+			END IF;
+		END $$`,
 
 		`CREATE TABLE IF NOT EXISTS invoice_items (
 			id SERIAL PRIMARY KEY,
