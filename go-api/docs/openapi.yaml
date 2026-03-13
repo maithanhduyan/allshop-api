@@ -1,0 +1,627 @@
+openapi: "3.0.3"
+info:
+  title: AllShop API
+  description: |
+    Backend API cho ứng dụng bán hàng trực tuyến **AllShop**.
+
+    ## Xác thực
+    Các endpoint được đánh dấu 🔒 yêu cầu JWT token trong header:
+    ```
+    Authorization: Bearer <token>
+    ```
+    Token nhận được sau khi đăng ký hoặc đăng nhập.
+  version: "1.0.0"
+  contact:
+    name: AllShop Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: Products
+    description: Quản lý sản phẩm
+  - name: Categories
+    description: Danh mục sản phẩm
+  - name: Auth
+    description: Đăng ký, đăng nhập, đăng xuất
+  - name: Users
+    description: Thông tin người dùng
+  - name: Cart
+    description: Giỏ hàng
+  - name: Orders
+    description: Đơn hàng
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        name:
+          type: string
+          example: "Áo thun nam cổ tròn Premium Cotton"
+        slug:
+          type: string
+          example: "ao-thun-nam-co-tron"
+        description:
+          type: string
+          example: "Áo thun nam chất liệu 100% cotton cao cấp"
+        price:
+          type: number
+          example: 199000
+        originalPrice:
+          type: number
+          nullable: true
+          example: 350000
+        images:
+          type: array
+          items:
+            type: string
+          example: ["https://picsum.photos/seed/fashion1/600/600"]
+        category:
+          type: string
+          enum: [fashion, electronics, tools, computers, phones, accessories]
+          example: "fashion"
+        brand:
+          type: string
+          example: "AllShop Basic"
+        rating:
+          type: number
+          format: float
+          example: 4.5
+        reviewCount:
+          type: integer
+          example: 128
+        stock:
+          type: integer
+          example: 50
+        specifications:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            "Chất liệu": "100% Cotton"
+            "Xuất xứ": "Việt Nam"
+        createdAt:
+          type: string
+          format: date-time
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "fashion"
+        name:
+          type: string
+          example: "Thời trang"
+        emoji:
+          type: string
+          example: "👕"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        name:
+          type: string
+          example: "Nguyễn Văn A"
+        email:
+          type: string
+          format: email
+          example: "user@allshop.vn"
+        phone:
+          type: string
+          nullable: true
+          example: "0901234567"
+        avatar:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CartItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: "1"
+        name:
+          type: string
+          example: "Áo thun nam cổ tròn Premium Cotton"
+        image:
+          type: string
+          example: "https://picsum.photos/seed/fashion1/600/600"
+        price:
+          type: number
+          example: 199000
+        quantity:
+          type: integer
+          example: 2
+        stock:
+          type: integer
+          example: 50
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        name:
+          type: string
+        image:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: integer
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        userId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        total:
+          type: number
+          example: 398000
+        status:
+          type: string
+          enum: [pending, confirmed, shipping, delivered, cancelled]
+          example: "pending"
+        name:
+          type: string
+          example: "Nguyễn Văn A"
+        phone:
+          type: string
+          example: "0901234567"
+        address:
+          type: string
+          example: "123 Nguyễn Huệ, Q.1, TP.HCM"
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductListResponse:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: integer
+          example: 8
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        user:
+          $ref: "#/components/schemas/User"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "error message"
+
+paths:
+  # ──────────── Products ────────────
+  /api/products:
+    get:
+      tags: [Products]
+      summary: Danh sách sản phẩm
+      description: Lấy tất cả sản phẩm, có thể lọc theo danh mục hoặc tìm kiếm.
+      parameters:
+        - name: category
+          in: query
+          description: Lọc theo danh mục
+          schema:
+            type: string
+            enum: [fashion, electronics, tools, computers, phones, accessories]
+        - name: search
+          in: query
+          description: Tìm kiếm theo tên hoặc mô tả
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductListResponse"
+
+  /api/products/{id}:
+    get:
+      tags: [Products]
+      summary: Chi tiết sản phẩm
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Không tìm thấy sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ──────────── Categories ────────────
+  /api/categories:
+    get:
+      tags: [Categories]
+      summary: Danh mục sản phẩm
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  # ──────────── Auth ────────────
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Đăng ký tài khoản
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: "Nguyễn Văn A"
+                email:
+                  type: string
+                  format: email
+                  example: "user@allshop.vn"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "123456"
+      responses:
+        "201":
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Email đã được đăng ký
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Đăng nhập
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@allshop.vn"
+                password:
+                  type: string
+                  example: "123456"
+      responses:
+        "200":
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Email hoặc mật khẩu không đúng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Đăng xuất 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Đăng xuất thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  # ──────────── Users ────────────
+  /api/users/profile:
+    get:
+      tags: [Users]
+      summary: Lấy thông tin cá nhân 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    put:
+      tags: [Users]
+      summary: Cập nhật thông tin cá nhân 🔒
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ──────────── Cart ────────────
+  /api/cart:
+    get:
+      tags: [Cart]
+      summary: Lấy giỏ hàng 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CartItem"
+
+  /api/cart/items:
+    post:
+      tags: [Cart]
+      summary: Thêm sản phẩm vào giỏ 🔒
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, quantity]
+              properties:
+                productId:
+                  type: string
+                  example: "1"
+                quantity:
+                  type: integer
+                  minimum: 1
+                  example: 1
+      responses:
+        "200":
+          description: Đã thêm vào giỏ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "404":
+          description: Sản phẩm không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/cart/items/{productId}:
+    put:
+      tags: [Cart]
+      summary: Cập nhật số lượng 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+      responses:
+        "200":
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "404":
+          description: Không tìm thấy trong giỏ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [Cart]
+      summary: Xóa khỏi giỏ hàng 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Đã xóa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  # ──────────── Orders ────────────
+  /api/orders:
+    post:
+      tags: [Orders]
+      summary: Tạo đơn hàng từ giỏ hàng 🔒
+      description: Tạo đơn hàng mới từ tất cả sản phẩm trong giỏ. Giỏ hàng sẽ được xóa sau khi tạo đơn thành công.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, address]
+              properties:
+                name:
+                  type: string
+                  example: "Nguyễn Văn A"
+                phone:
+                  type: string
+                  example: "0901234567"
+                address:
+                  type: string
+                  example: "123 Nguyễn Huệ, Q.1, TP.HCM"
+                note:
+                  type: string
+                  example: "Giao giờ hành chính"
+      responses:
+        "201":
+          description: Đơn hàng được tạo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Giỏ hàng trống hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [Orders]
+      summary: Danh sách đơn hàng 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /api/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Chi tiết đơn hàng 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Không tìm thấy đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
