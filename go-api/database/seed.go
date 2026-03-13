@@ -280,6 +280,91 @@ func Seed(db *sql.DB, store *storage.Storage) error {
 	}
 
 	log.Println("Database seeded successfully")
+
+	if err := SeedAccounts(db); err != nil {
+		return fmt.Errorf("seed accounts: %w", err)
+	}
+
+	return nil
+}
+
+func SeedAccounts(db *sql.DB) error {
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM accounts").Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		log.Println("Accounts already seeded, skipping")
+		return nil
+	}
+
+	// Hệ thống tài khoản kế toán Việt Nam (Thông tư 200/2014/TT-BTC)
+	accounts := []struct {
+		Code, Name, Type, ParentCode string
+		Level                        int
+	}{
+		// Loại 1 – Tài sản ngắn hạn
+		{"111", "Tiền mặt", "asset", "", 1},
+		{"1111", "Tiền Việt Nam", "asset", "111", 2},
+		{"112", "Tiền gửi ngân hàng", "asset", "", 1},
+		{"1121", "Tiền Việt Nam", "asset", "112", 2},
+		{"131", "Phải thu của khách hàng", "asset", "", 1},
+		{"133", "Thuế GTGT được khấu trừ", "asset", "", 1},
+		{"1331", "Thuế GTGT được khấu trừ của hàng hóa, dịch vụ", "asset", "133", 2},
+		{"152", "Nguyên liệu, vật liệu", "asset", "", 1},
+		{"156", "Hàng hóa", "asset", "", 1},
+		{"1561", "Giá mua hàng hóa", "asset", "156", 2},
+
+		// Loại 2 – Tài sản dài hạn
+		{"211", "Tài sản cố định hữu hình", "asset", "", 1},
+		{"214", "Hao mòn tài sản cố định", "asset", "", 1},
+
+		// Loại 3 – Nợ phải trả
+		{"331", "Phải trả cho người bán", "liability", "", 1},
+		{"333", "Thuế và các khoản phải nộp Nhà nước", "liability", "", 1},
+		{"3331", "Thuế GTGT phải nộp", "liability", "333", 2},
+		{"33311", "Thuế GTGT đầu ra", "liability", "3331", 3},
+		{"334", "Phải trả người lao động", "liability", "", 1},
+
+		// Loại 4 – Vốn chủ sở hữu
+		{"411", "Vốn đầu tư của chủ sở hữu", "equity", "", 1},
+		{"421", "Lợi nhuận sau thuế chưa phân phối", "equity", "", 1},
+
+		// Loại 5 – Doanh thu
+		{"511", "Doanh thu bán hàng và cung cấp dịch vụ", "revenue", "", 1},
+		{"5111", "Doanh thu bán hàng hóa", "revenue", "511", 2},
+		{"515", "Doanh thu hoạt động tài chính", "revenue", "", 1},
+		{"521", "Các khoản giảm trừ doanh thu", "revenue", "", 1},
+
+		// Loại 6 – Chi phí
+		{"632", "Giá vốn hàng bán", "expense", "", 1},
+		{"641", "Chi phí bán hàng", "expense", "", 1},
+		{"642", "Chi phí quản lý doanh nghiệp", "expense", "", 1},
+
+		// Loại 7 – Thu nhập khác
+		{"711", "Thu nhập khác", "revenue", "", 1},
+
+		// Loại 8 – Chi phí khác
+		{"811", "Chi phí khác", "expense", "", 1},
+		{"821", "Chi phí thuế thu nhập doanh nghiệp", "expense", "", 1},
+
+		// Loại 9 – Xác định kết quả kinh doanh
+		{"911", "Xác định kết quả kinh doanh", "equity", "", 1},
+	}
+
+	for _, a := range accounts {
+		_, err := db.Exec(
+			`INSERT INTO accounts (code, name, type, parent_code, level)
+			 VALUES ($1, $2, $3, NULLIF($4, ''), $5)
+			 ON CONFLICT (code) DO NOTHING`,
+			a.Code, a.Name, a.Type, a.ParentCode, a.Level,
+		)
+		if err != nil {
+			return fmt.Errorf("insert account %s: %w", a.Code, err)
+		}
+	}
+
+	log.Println("Chart of accounts seeded (VN standard TT200)")
 	return nil
 }
 

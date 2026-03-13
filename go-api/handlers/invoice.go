@@ -292,9 +292,16 @@ func (h *Handler) IssueInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := h.db.Begin()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start transaction")
+		return
+	}
+	defer tx.Rollback()
+
 	now := time.Now()
 	var inv models.Invoice
-	err = h.db.QueryRow(
+	err = tx.QueryRow(
 		`UPDATE invoices SET status = 'issued', issued_at = $1
 		 WHERE id = $2 AND user_id = $3
 		 RETURNING id, invoice_number, order_id, user_id,
@@ -312,6 +319,26 @@ func (h *Handler) IssueInvoice(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to issue invoice")
+		return
+	}
+
+	// Auto-create journal entry: bán hàng
+	// Nợ 131 (Phải thu khách hàng) = totalAmount
+	// Có 5111 (Doanh thu bán hàng hóa) = subtotal
+	// Có 33311 (Thuế GTGT đầu ra) = taxAmount
+	desc := fmt.Sprintf("Phát hành hóa đơn %s — %s", inv.InvoiceNumber, inv.BuyerName)
+	_, err = createJournalEntry(tx, inv.ID, desc, []journalLineInput{
+		{accountCode: "131", description: "Phải thu khách hàng", debit: inv.TotalAmount, credit: 0},
+		{accountCode: "5111", description: "Doanh thu bán hàng hóa", debit: 0, credit: inv.Subtotal},
+		{accountCode: "33311", description: "Thuế GTGT đầu ra", debit: 0, credit: inv.TaxAmount},
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create journal entry")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit transaction")
 		return
 	}
 
@@ -337,9 +364,16 @@ func (h *Handler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := h.db.Begin()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to start transaction")
+		return
+	}
+	defer tx.Rollback()
+
 	now := time.Now()
 	var inv models.Invoice
-	err = h.db.QueryRow(
+	err = tx.QueryRow(
 		`UPDATE invoices SET status = 'cancelled', cancelled_at = $1
 		 WHERE id = $2 AND user_id = $3
 		 RETURNING id, invoice_number, order_id, user_id,
@@ -357,6 +391,28 @@ func (h *Handler) CancelInvoice(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to cancel invoice")
+		return
+	}
+
+	// If invoice was "issued", reverse its journal entry
+	if status == "issued" {
+		var originalEntryID string
+		err := tx.QueryRow(
+			`SELECT id FROM journal_entries
+			 WHERE invoice_id = $1 AND status = 'posted'
+			 ORDER BY created_at DESC LIMIT 1`, invoiceID,
+		).Scan(&originalEntryID)
+		if err == nil {
+			desc := fmt.Sprintf("Hủy hóa đơn %s — ghi đảo", inv.InvoiceNumber)
+			if _, err := createReversalEntry(tx, originalEntryID, inv.ID, desc); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to reverse journal entry")
+				return
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit transaction")
 		return
 	}
 

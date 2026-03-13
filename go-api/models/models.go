@@ -149,6 +149,41 @@ type CancelInvoiceRequest struct {
 	Reason string `json:"reason"`
 }
 
+// ── Accounting ──
+
+type Account struct {
+	ID         string `json:"id"`
+	Code       string `json:"code"`
+	Name       string `json:"name"`
+	Type       string `json:"type"` // asset, liability, equity, revenue, expense
+	ParentCode string `json:"parentCode,omitempty"`
+	Level      int    `json:"level"`
+	IsActive   bool   `json:"isActive"`
+}
+
+type JournalEntry struct {
+	ID          string        `json:"id"`
+	EntryNumber string        `json:"entryNumber"`
+	InvoiceID   *string       `json:"invoiceId,omitempty"`
+	Description string        `json:"description"`
+	EntryDate   string        `json:"entryDate"`
+	Status      string        `json:"status"` // posted, reversed
+	ReversedBy  *string       `json:"reversedBy,omitempty"`
+	Reverses    *string       `json:"reverses,omitempty"`
+	Lines       []JournalLine `json:"lines"`
+	CreatedAt   time.Time     `json:"createdAt"`
+}
+
+type JournalLine struct {
+	ID             string  `json:"id"`
+	JournalEntryID string  `json:"journalEntryId"`
+	AccountCode    string  `json:"accountCode"`
+	AccountName    string  `json:"accountName,omitempty"`
+	Description    string  `json:"description"`
+	Debit          float64 `json:"debit"`
+	Credit         float64 `json:"credit"`
+}
+
 type ProductListResponse struct {
 	Products []Product `json:"products"`
 	Total    int       `json:"total"`

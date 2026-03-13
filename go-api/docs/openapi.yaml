@@ -33,6 +33,8 @@ tags:
     description: Đơn hàng
   - name: Invoices
     description: Hóa đơn điện tử
+  - name: Accounting
+    description: Kế toán — hệ thống tài khoản, bút toán, bảng cân đối
 
 components:
   securitySchemes:
@@ -333,6 +335,118 @@ components:
         totalAmount:
           type: number
           example: 540000
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        code:
+          type: string
+          example: "131"
+        name:
+          type: string
+          example: "Phải thu của khách hàng"
+        type:
+          type: string
+          enum: [asset, liability, equity, revenue, expense]
+          example: "asset"
+        parentCode:
+          type: string
+          nullable: true
+          example: null
+        level:
+          type: integer
+          example: 1
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+
+    JournalEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        entryNumber:
+          type: string
+          example: "JE-20260313-0001"
+        invoiceId:
+          type: string
+          nullable: true
+          example: "5"
+        description:
+          type: string
+          example: "Ghi nhận doanh thu hóa đơn HD-20260313-0001"
+        entryDate:
+          type: string
+          format: date
+          example: "2026-03-13"
+        status:
+          type: string
+          enum: [posted, reversed]
+          example: "posted"
+        reversedBy:
+          type: string
+          nullable: true
+        reverses:
+          type: string
+          nullable: true
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalLine"
+        createdAt:
+          type: string
+          format: date-time
+
+    JournalLine:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        journalEntryId:
+          type: string
+          example: "1"
+        accountCode:
+          type: string
+          example: "131"
+        accountName:
+          type: string
+          example: "Phải thu của khách hàng"
+        description:
+          type: string
+          example: "Phải thu từ khách hàng"
+        debit:
+          type: number
+          example: 1620000
+        credit:
+          type: number
+          example: 0
+
+    TrialBalanceRow:
+      type: object
+      properties:
+        accountCode:
+          type: string
+          example: "131"
+        accountName:
+          type: string
+          example: "Phải thu của khách hàng"
+        totalDebit:
+          type: number
+          example: 1620000
+        totalCredit:
+          type: number
+          example: 0
+        balance:
+          type: number
+          example: 1620000
 
 paths:
   # ──────────── Products ────────────
@@ -880,3 +994,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  # ──────────── Accounting ────────────
+  /api/accounts:
+    get:
+      tags: [Accounting]
+      summary: Danh sách tài khoản kế toán 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+
+  /api/journal-entries:
+    get:
+      tags: [Accounting]
+      summary: Danh sách bút toán 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JournalEntry"
+
+  /api/journal-entries/{id}:
+    get:
+      tags: [Accounting]
+      summary: Chi tiết bút toán 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+        "404":
+          description: Không tìm thấy bút toán
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/trial-balance:
+    get:
+      tags: [Accounting]
+      summary: Bảng cân đối thử 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrialBalanceRow"

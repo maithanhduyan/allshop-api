@@ -116,6 +116,12 @@ func main() {
 			r.Get("/invoices/{id}", h.GetInvoice)
 			r.Put("/invoices/{id}/issue", h.IssueInvoice)
 			r.Put("/invoices/{id}/cancel", h.CancelInvoice)
+
+			// Accounting routes
+			r.Get("/accounts", h.ListAccounts)
+			r.Get("/journal-entries", h.ListJournalEntries)
+			r.Get("/journal-entries/{id}", h.GetJournalEntry)
+			r.Get("/trial-balance", h.GetTrialBalance)
 		})
 	})
 

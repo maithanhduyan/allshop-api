@@ -105,6 +105,43 @@ func Migrate(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_invoices_order_id ON invoices(order_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)`,
+
+		// ── Accounting ──
+		`CREATE TABLE IF NOT EXISTS accounts (
+			id SERIAL PRIMARY KEY,
+			code VARCHAR(20) UNIQUE NOT NULL,
+			name VARCHAR(255) NOT NULL,
+			type VARCHAR(20) NOT NULL,
+			parent_code VARCHAR(20),
+			level INT NOT NULL DEFAULT 1,
+			is_active BOOLEAN DEFAULT true
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS journal_entries (
+			id SERIAL PRIMARY KEY,
+			entry_number VARCHAR(50) UNIQUE NOT NULL,
+			invoice_id INT REFERENCES invoices(id),
+			description TEXT NOT NULL,
+			entry_date DATE NOT NULL,
+			status VARCHAR(20) NOT NULL DEFAULT 'posted',
+			reversed_by INT REFERENCES journal_entries(id),
+			reverses INT REFERENCES journal_entries(id),
+			created_at TIMESTAMPTZ DEFAULT NOW()
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS journal_lines (
+			id SERIAL PRIMARY KEY,
+			journal_entry_id INT NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
+			account_code VARCHAR(20) NOT NULL REFERENCES accounts(code),
+			description TEXT,
+			debit NUMERIC(15,2) NOT NULL DEFAULT 0,
+			credit NUMERIC(15,2) NOT NULL DEFAULT 0,
+			CHECK (debit >= 0 AND credit >= 0)
+		)`,
+
+		`CREATE INDEX IF NOT EXISTS idx_journal_entries_invoice_id ON journal_entries(invoice_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_journal_entries_entry_date ON journal_entries(entry_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_journal_lines_account_code ON journal_lines(account_code)`,
 	}
 
 	for _, q := range queries {
