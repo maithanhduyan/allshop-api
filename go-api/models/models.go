@@ -104,6 +104,51 @@ type UpdateProfileRequest struct {
 	Phone *string `json:"phone,omitempty"`
 }
 
+type Invoice struct {
+	ID            string        `json:"id"`
+	InvoiceNumber string        `json:"invoiceNumber"`
+	OrderID       string        `json:"orderId"`
+	UserID        string        `json:"userId"`
+	SellerName    string        `json:"sellerName"`
+	SellerTaxCode string        `json:"sellerTaxCode"`
+	SellerAddress string        `json:"sellerAddress"`
+	BuyerName     string        `json:"buyerName"`
+	BuyerTaxCode  *string       `json:"buyerTaxCode,omitempty"`
+	BuyerAddress  string        `json:"buyerAddress"`
+	BuyerEmail    string        `json:"buyerEmail"`
+	Subtotal      float64       `json:"subtotal"`
+	TaxRate       float64       `json:"taxRate"`
+	TaxAmount     float64       `json:"taxAmount"`
+	TotalAmount   float64       `json:"totalAmount"`
+	Status        string        `json:"status"`
+	Items         []InvoiceItem `json:"items"`
+	IssuedAt      *time.Time    `json:"issuedAt,omitempty"`
+	CancelledAt   *time.Time    `json:"cancelledAt,omitempty"`
+	CreatedAt     time.Time     `json:"createdAt"`
+}
+
+type InvoiceItem struct {
+	ID          string  `json:"id"`
+	InvoiceID   string  `json:"invoiceId"`
+	ProductID   string  `json:"productId"`
+	ProductName string  `json:"productName"`
+	Unit        string  `json:"unit"`
+	Quantity    int     `json:"quantity"`
+	UnitPrice   float64 `json:"unitPrice"`
+	TaxRate     float64 `json:"taxRate"`
+	TaxAmount   float64 `json:"taxAmount"`
+	TotalAmount float64 `json:"totalAmount"`
+}
+
+type CreateInvoiceRequest struct {
+	BuyerTaxCode *string `json:"buyerTaxCode,omitempty"`
+	TaxRate      float64 `json:"taxRate"`
+}
+
+type CancelInvoiceRequest struct {
+	Reason string `json:"reason"`
+}
+
 type ProductListResponse struct {
 	Products []Product `json:"products"`
 	Total    int       `json:"total"`

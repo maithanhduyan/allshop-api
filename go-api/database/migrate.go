@@ -66,6 +66,45 @@ func Migrate(db *sql.DB) error {
 			price NUMERIC(15,2) NOT NULL,
 			quantity INT NOT NULL
 		)`,
+
+		`CREATE TABLE IF NOT EXISTS invoices (
+			id SERIAL PRIMARY KEY,
+			invoice_number VARCHAR(50) UNIQUE NOT NULL,
+			order_id INT REFERENCES orders(id),
+			user_id INT REFERENCES users(id),
+			seller_name VARCHAR(255) NOT NULL,
+			seller_tax_code VARCHAR(20) NOT NULL,
+			seller_address TEXT NOT NULL,
+			buyer_name VARCHAR(255) NOT NULL,
+			buyer_tax_code VARCHAR(20),
+			buyer_address TEXT NOT NULL,
+			buyer_email VARCHAR(255),
+			subtotal NUMERIC(15,2) NOT NULL,
+			tax_rate NUMERIC(5,4) NOT NULL DEFAULT 0.08,
+			tax_amount NUMERIC(15,2) NOT NULL,
+			total_amount NUMERIC(15,2) NOT NULL,
+			status VARCHAR(20) NOT NULL DEFAULT 'draft',
+			issued_at TIMESTAMPTZ,
+			cancelled_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ DEFAULT NOW()
+		)`,
+
+		`CREATE TABLE IF NOT EXISTS invoice_items (
+			id SERIAL PRIMARY KEY,
+			invoice_id INT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+			product_id INT REFERENCES products(id),
+			product_name VARCHAR(500) NOT NULL,
+			unit VARCHAR(50) NOT NULL DEFAULT 'Cái',
+			quantity INT NOT NULL,
+			unit_price NUMERIC(15,2) NOT NULL,
+			tax_rate NUMERIC(5,4) NOT NULL DEFAULT 0.08,
+			tax_amount NUMERIC(15,2) NOT NULL,
+			total_amount NUMERIC(15,2) NOT NULL
+		)`,
+
+		`CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoices_order_id ON invoices(order_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)`,
 	}
 
 	for _, q := range queries {

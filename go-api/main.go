@@ -109,6 +109,13 @@ func main() {
 			r.Post("/orders", h.CreateOrder)
 			r.Get("/orders", h.ListOrders)
 			r.Get("/orders/{id}", h.GetOrder)
+
+			// Invoice routes
+			r.Post("/orders/{id}/invoice", h.CreateInvoice)
+			r.Get("/invoices", h.ListInvoices)
+			r.Get("/invoices/{id}", h.GetInvoice)
+			r.Put("/invoices/{id}/issue", h.IssueInvoice)
+			r.Put("/invoices/{id}/cancel", h.CancelInvoice)
 		})
 	})
 

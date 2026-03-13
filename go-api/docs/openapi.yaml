@@ -31,6 +31,8 @@ tags:
     description: Giỏ hàng
   - name: Orders
     description: Đơn hàng
+  - name: Invoices
+    description: Hóa đơn điện tử
 
 components:
   securitySchemes:
@@ -228,6 +230,109 @@ components:
         error:
           type: string
           example: "error message"
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        invoiceNumber:
+          type: string
+          example: "HD-20260313-0001"
+        orderId:
+          type: string
+          example: "5"
+        userId:
+          type: string
+          example: "1"
+        sellerName:
+          type: string
+          example: "Công ty TNHH AllShop Việt Nam"
+        sellerTaxCode:
+          type: string
+          example: "0123456789"
+        sellerAddress:
+          type: string
+          example: "123 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh"
+        buyerName:
+          type: string
+          example: "Nguyễn Văn A"
+        buyerTaxCode:
+          type: string
+          nullable: true
+          example: "0987654321"
+        buyerAddress:
+          type: string
+          example: "456 Lê Lợi, Q.3, TP.HCM"
+        buyerEmail:
+          type: string
+          example: "buyer@example.com"
+        subtotal:
+          type: number
+          example: 1500000
+        taxRate:
+          type: number
+          example: 0.08
+        taxAmount:
+          type: number
+          example: 120000
+        totalAmount:
+          type: number
+          example: 1620000
+        status:
+          type: string
+          enum: [draft, issued, cancelled]
+          example: "draft"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceItem"
+        issuedAt:
+          type: string
+          format: date-time
+          nullable: true
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    InvoiceItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "1"
+        invoiceId:
+          type: string
+          example: "1"
+        productId:
+          type: string
+          example: "3"
+        productName:
+          type: string
+          example: "Áo thun nam cotton"
+        unit:
+          type: string
+          example: "Cái"
+        quantity:
+          type: integer
+          example: 2
+        unitPrice:
+          type: number
+          example: 250000
+        taxRate:
+          type: number
+          example: 0.08
+        taxAmount:
+          type: number
+          example: 40000
+        totalAmount:
+          type: number
+          example: 540000
 
 paths:
   # ──────────── Products ────────────
@@ -599,6 +704,156 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Order"
+
+  # ──────────── Invoices ────────────
+  /api/orders/{id}/invoice:
+    post:
+      tags: [Invoices]
+      summary: Tạo hóa đơn từ đơn hàng 🔒
+      description: Tạo hóa đơn điện tử từ đơn hàng đã xác nhận. Mỗi đơn hàng chỉ có 1 hóa đơn active.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID đơn hàng
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                buyerTaxCode:
+                  type: string
+                  description: Mã số thuế người mua (tùy chọn)
+                  example: "0987654321"
+                taxRate:
+                  type: number
+                  description: Thuế suất VAT (mặc định 0.08 = 8%)
+                  example: 0.08
+      responses:
+        "201":
+          description: Hóa đơn được tạo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "400":
+          description: Đơn hàng chưa được xác nhận
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Hóa đơn đã tồn tại cho đơn hàng này
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/invoices:
+    get:
+      tags: [Invoices]
+      summary: Danh sách hóa đơn 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+
+  /api/invoices/{id}:
+    get:
+      tags: [Invoices]
+      summary: Chi tiết hóa đơn 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "404":
+          description: Không tìm thấy hóa đơn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/invoices/{id}/issue:
+    put:
+      tags: [Invoices]
+      summary: Phát hành hóa đơn 🔒
+      description: Chuyển trạng thái hóa đơn từ draft sang issued.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hóa đơn đã được phát hành
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "400":
+          description: Hóa đơn không ở trạng thái draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/invoices/{id}/cancel:
+    put:
+      tags: [Invoices]
+      summary: Hủy hóa đơn 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hóa đơn đã được hủy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "400":
+          description: Hóa đơn đã bị hủy rồi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/orders/{id}:
     get:
