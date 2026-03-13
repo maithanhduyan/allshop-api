@@ -1,11 +1,15 @@
 package database
 
 import (
+	"allshop-api/storage"
+	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"time"
 )
 
-func Seed(db *sql.DB) error {
+func Seed(db *sql.DB, store *storage.Storage) error {
 	// Seed categories
 	categories := []struct {
 		ID, Name, Emoji string
@@ -247,15 +251,31 @@ func Seed(db *sql.DB) error {
 		},
 	}
 
-	for _, p := range products {
+	for i, p := range products {
+		imageURL := p.Image
+
+		// If MinIO is available, download and store images there
+		if store != nil {
+			objectName := storage.ObjectNameFromURL(p.Slug, p.Image)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			minioURL, err := store.DownloadFromURL(ctx, p.Image, objectName)
+			cancel()
+			if err != nil {
+				log.Printf("Warning: failed to upload image for %s to MinIO: %v (using original URL)", p.Name, err)
+			} else {
+				imageURL = minioURL
+				log.Printf("[%d/%d] Uploaded image for %s to MinIO", i+1, len(products), p.Name)
+			}
+		}
+
 		_, err := db.Exec(
 			`INSERT INTO products (name, slug, description, price, original_price, images, category, brand, rating, review_count, stock, specifications)
 			 VALUES ($1, $2, $3, $4, $5, ARRAY[$6], $7, $8, $9, $10, $11, $12::jsonb)`,
 			p.Name, p.Slug, p.Description, p.Price, p.OriginalPrice,
-			p.Image, p.Category, p.Brand, p.Rating, p.ReviewCount, p.Stock, p.Specifications,
+			imageURL, p.Category, p.Brand, p.Rating, p.ReviewCount, p.Stock, p.Specifications,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("insert product %s: %w", p.Name, err)
 		}
 	}
 

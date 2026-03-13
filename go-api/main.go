@@ -1,10 +1,12 @@
 package main
 
 import (
+	"allshop-api/cache"
 	"allshop-api/config"
 	"allshop-api/database"
 	"allshop-api/handlers"
 	"allshop-api/middleware"
+	"allshop-api/storage"
 	"log"
 	"net/http"
 	"os"
@@ -27,11 +29,32 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	if err := database.Seed(db); err != nil {
+	// Initialize Redis cache
+	redisCache, err := cache.New(cfg.RedisURL)
+	if err != nil {
+		log.Printf("Warning: Redis not available, running without cache: %v", err)
+	} else {
+		defer redisCache.Close()
+	}
+
+	// Initialize MinIO storage
+	minioStorage, err := storage.New(
+		cfg.MinioEndpoint,
+		cfg.MinioAccessKey,
+		cfg.MinioSecretKey,
+		cfg.MinioBucket,
+		cfg.MinioPublicURL,
+	)
+	if err != nil {
+		log.Printf("Warning: MinIO not available, running without object storage: %v", err)
+	}
+
+	// Seed database (with MinIO image migration)
+	if err := database.Seed(db, minioStorage); err != nil {
 		log.Printf("Seed warning: %v", err)
 	}
 
-	h := handlers.New(db, cfg.JWTSecret)
+	h := handlers.New(db, cfg.JWTSecret, redisCache, minioStorage)
 
 	r := chi.NewRouter()
 
@@ -62,6 +85,9 @@ func main() {
 		r.Get("/products", h.ListProducts)
 		r.Get("/products/{id}", h.GetProduct)
 		r.Get("/categories", h.ListCategories)
+
+		// Image proxy (serves images from MinIO through the API)
+		r.Get("/images/*", h.ServeImage)
 
 		r.Post("/auth/register", h.Register)
 		r.Post("/auth/login", h.Login)

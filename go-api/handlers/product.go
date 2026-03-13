@@ -3,17 +3,40 @@ package handlers
 import (
 	"allshop-api/models"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
+)
+
+const (
+	productListTTL = 5 * time.Minute
+	productTTL     = 10 * time.Minute
+	categoryTTL    = 30 * time.Minute
 )
 
 func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	search := r.URL.Query().Get("search")
+
+	// Try cache first
+	if h.cache != nil {
+		cacheKey := fmt.Sprintf("products:list:%s:%s", category, search)
+		if cached, err := h.cache.Get(r.Context(), cacheKey); err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Cache", "HIT")
+			w.Write([]byte(cached))
+			return
+		} else if err != redis.Nil {
+			log.Printf("cache get error: %v", err)
+		}
+	}
 
 	query := `SELECT id, name, slug, description, price, original_price, images, category, brand, rating, review_count, stock, specifications, created_at FROM products WHERE 1=1`
 	args := []interface{}{}
@@ -59,14 +82,40 @@ func (h *Handler) ListProducts(w http.ResponseWriter, r *http.Request) {
 		products = append(products, p)
 	}
 
-	writeJSON(w, http.StatusOK, models.ProductListResponse{
+	response := models.ProductListResponse{
 		Products: products,
 		Total:    len(products),
-	})
+	}
+
+	// Cache the response
+	if h.cache != nil {
+		cacheKey := fmt.Sprintf("products:list:%s:%s", category, search)
+		if data, err := json.Marshal(response); err == nil {
+			if err := h.cache.Set(r.Context(), cacheKey, string(data), productListTTL); err != nil {
+				log.Printf("cache set error: %v", err)
+			}
+		}
+	}
+
+	w.Header().Set("X-Cache", "MISS")
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	// Try cache first
+	if h.cache != nil {
+		cacheKey := fmt.Sprintf("products:%s", id)
+		if cached, err := h.cache.Get(r.Context(), cacheKey); err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Cache", "HIT")
+			w.Write([]byte(cached))
+			return
+		} else if err != redis.Nil {
+			log.Printf("cache get error: %v", err)
+		}
+	}
 
 	var p models.Product
 	var specs []byte
@@ -86,10 +135,34 @@ func (h *Handler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal(specs, &p.Specifications)
 	}
 
+	// Cache the response
+	if h.cache != nil {
+		cacheKey := fmt.Sprintf("products:%s", id)
+		if data, err := json.Marshal(p); err == nil {
+			if err := h.cache.Set(r.Context(), cacheKey, string(data), productTTL); err != nil {
+				log.Printf("cache set error: %v", err)
+			}
+		}
+	}
+
+	w.Header().Set("X-Cache", "MISS")
 	writeJSON(w, http.StatusOK, p)
 }
 
 func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
+	// Try cache first
+	if h.cache != nil {
+		cacheKey := "categories:list"
+		if cached, err := h.cache.Get(r.Context(), cacheKey); err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Cache", "HIT")
+			w.Write([]byte(cached))
+			return
+		} else if err != redis.Nil {
+			log.Printf("cache get error: %v", err)
+		}
+	}
+
 	rows, err := h.db.Query(`SELECT id, name, emoji FROM categories ORDER BY id`)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to query categories")
@@ -107,5 +180,16 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 		categories = append(categories, c)
 	}
 
+	// Cache the response
+	if h.cache != nil {
+		cacheKey := "categories:list"
+		if data, err := json.Marshal(categories); err == nil {
+			if err := h.cache.Set(r.Context(), cacheKey, string(data), categoryTTL); err != nil {
+				log.Printf("cache set error: %v", err)
+			}
+		}
+	}
+
+	w.Header().Set("X-Cache", "MISS")
 	writeJSON(w, http.StatusOK, categories)
 }

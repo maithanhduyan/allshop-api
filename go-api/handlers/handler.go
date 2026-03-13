@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"allshop-api/cache"
+	"allshop-api/storage"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -9,10 +11,12 @@ import (
 type Handler struct {
 	db        *sql.DB
 	jwtSecret string
+	cache     *cache.Cache
+	storage   *storage.Storage
 }
 
-func New(db *sql.DB, jwtSecret string) *Handler {
-	return &Handler{db: db, jwtSecret: jwtSecret}
+func New(db *sql.DB, jwtSecret string, cache *cache.Cache, storage *storage.Storage) *Handler {
+	return &Handler{db: db, jwtSecret: jwtSecret, cache: cache, storage: storage}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
