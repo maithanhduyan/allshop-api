@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 type Config struct {
 	Port           string
@@ -15,9 +18,21 @@ type Config struct {
 }
 
 func Load() *Config {
+	dbURL := getEnv("DATABASE_URL", "")
+	if dbURL == "" {
+		dbURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+			getEnv("POSTGRES_USER", "yourusername"),
+			getEnv("POSTGRES_PASSWORD", "yourpassword"),
+			getEnv("POSTGRES_HOST", "db"),
+			getEnv("POSTGRES_PORT", "5432"),
+			getEnv("POSTGRES_DB", "yourdatabase"),
+			getEnv("POSTGRES_SSLMODE", "disable"),
+		)
+	}
+
 	return &Config{
 		Port:           getEnv("PORT", "8000"),
-		DatabaseURL:    getEnv("DATABASE_URL", "postgres://yourusername:yourpassword@db:5432/yourdatabase?sslmode=disable"),
+		DatabaseURL:    dbURL,
 		JWTSecret:      getEnv("JWT_SECRET", "allshop-secret-key-change-in-production"),
 		RedisURL:       getEnv("REDIS_URL", "redis://redis:6379/0"),
 		MinioEndpoint:  getEnv("MINIO_ENDPOINT", "minio:9000"),
