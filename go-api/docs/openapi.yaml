@@ -35,6 +35,8 @@ tags:
     description: Hóa đơn điện tử
   - name: Accounting
     description: Kế toán — hệ thống tài khoản, bút toán, bảng cân đối
+  - name: Reports
+    description: Báo cáo doanh thu, thuế, cân đối tài khoản, dashboard
 
 components:
   securitySchemes:
@@ -447,6 +449,133 @@ components:
         balance:
           type: number
           example: 1620000
+
+    RevenueReport:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              invoiceCount:
+                type: integer
+              subtotal:
+                type: number
+              tax:
+                type: number
+              total:
+                type: number
+        totalInvoices:
+          type: integer
+        totalSubtotal:
+          type: number
+        totalTax:
+          type: number
+        totalRevenue:
+          type: number
+
+    TaxReport:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        outputTax:
+          type: number
+        inputTax:
+          type: number
+        cancelledTax:
+          type: number
+        netTaxPayable:
+          type: number
+
+    AccountBalanceReport:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        accounts:
+          type: array
+          items:
+            type: object
+            properties:
+              accountCode:
+                type: string
+              accountName:
+                type: string
+              openingDebit:
+                type: number
+              openingCredit:
+                type: number
+              periodDebit:
+                type: number
+              periodCredit:
+                type: number
+              closingDebit:
+                type: number
+              closingCredit:
+                type: number
+
+    DashboardSummary:
+      type: object
+      properties:
+        invoices:
+          type: object
+          properties:
+            total:
+              type: integer
+            issued:
+              type: integer
+            cancelled:
+              type: integer
+            revenue:
+              type: number
+            tax:
+              type: number
+        journalEntries:
+          type: object
+          properties:
+            total:
+              type: integer
+            posted:
+              type: integer
+            reversed:
+              type: integer
+        accounting:
+          type: object
+          properties:
+            totalDebit:
+              type: number
+            totalCredit:
+              type: number
+            isBalanced:
+              type: boolean
+            totalAccounts:
+              type: integer
+        orders:
+          type: object
+          properties:
+            total:
+              type: integer
+            revenue:
+              type: number
 
 paths:
   # ──────────── Products ────────────
@@ -1069,3 +1198,123 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TrialBalanceRow"
+
+  # ──────────── Reports & PDF ────────────
+
+  /api/invoices/{id}/pdf:
+    get:
+      tags: [Invoices]
+      summary: Xuất hóa đơn PDF 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File PDF hóa đơn
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Không tìm thấy hóa đơn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reports/revenue:
+    get:
+      tags: [Reports]
+      summary: Báo cáo doanh thu 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Ngày bắt đầu (mặc định 30 ngày trước)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Ngày kết thúc (mặc định hôm nay)
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueReport"
+
+  /api/reports/tax:
+    get:
+      tags: [Reports]
+      summary: Báo cáo thuế 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxReport"
+
+  /api/reports/account-balance:
+    get:
+      tags: [Reports]
+      summary: Báo cáo cân đối tài khoản 🔒
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBalanceReport"
+
+  /api/reports/dashboard:
+    get:
+      tags: [Reports]
+      summary: Tổng quan dashboard 🔒
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"

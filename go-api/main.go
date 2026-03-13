@@ -122,6 +122,15 @@ func main() {
 			r.Get("/journal-entries", h.ListJournalEntries)
 			r.Get("/journal-entries/{id}", h.GetJournalEntry)
 			r.Get("/trial-balance", h.GetTrialBalance)
+
+			// PDF export
+			r.Get("/invoices/{id}/pdf", h.ExportInvoicePDF)
+
+			// Reports & dashboard
+			r.Get("/reports/revenue", h.RevenueReport)
+			r.Get("/reports/tax", h.TaxReport)
+			r.Get("/reports/account-balance", h.AccountBalanceReport)
+			r.Get("/reports/dashboard", h.DashboardSummary)
 		})
 	})
 
